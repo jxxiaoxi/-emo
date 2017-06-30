@@ -1,0 +1,30 @@
+[
+    {
+        "merged": "/root/Downloads/VoiceRecoder/JPushExample/build/intermediates/res/merged/release/layout/set_push_time.xml",
+        "source": "/root/Downloads/VoiceRecoder/JPushExample/res/layout/set_push_time.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/JPushExample/build/intermediates/res/merged/release/layout/main.xml",
+        "source": "/root/Downloads/VoiceRecoder/JPushExample/res/layout/main.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/JPushExample/build/intermediates/res/merged/release/layout/customer_notitfication_layout.xml",
+        "source": "/root/Downloads/VoiceRecoder/JPushExample/res/layout/customer_notitfication_layout.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/JPushExample/build/intermediates/res/merged/release/layout/jpush_popwin_layout.xml",
+        "source": "/root/Downloads/VoiceRecoder/JPushExample/res/layout/jpush_popwin_layout.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/JPushExample/build/intermediates/res/merged/release/layout/jpush_webview_layout.xml",
+        "source": "/root/Downloads/VoiceRecoder/JPushExample/res/layout/jpush_webview_layout.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/JPushExample/build/intermediates/res/merged/release/layout/push_set_dialog.xml",
+        "source": "/root/Downloads/VoiceRecoder/JPushExample/res/layout/push_set_dialog.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/JPushExample/build/intermediates/res/merged/release/layout/customer_notitfication_layout_one.xml",
+        "source": "/root/Downloads/VoiceRecoder/JPushExample/res/layout/customer_notitfication_layout_one.xml"
+    }
+]

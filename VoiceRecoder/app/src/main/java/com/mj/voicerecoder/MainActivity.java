@@ -2,8 +2,13 @@ package com.mj.voicerecoder;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
@@ -15,6 +20,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
+import android.support.v4.content.LocalBroadcastManager;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.TextureView;
@@ -38,6 +44,7 @@ import com.iflytek.cloud.ui.RecognizerDialog;
 import com.iflytek.cloud.ui.RecognizerDialogListener;
 import com.iflytek.sunflower.FlowerCollector;
 import com.mj.voicerecoder.base.BaseActivity;
+import com.mj.voicerecoder.bean.JpushBean;
 import com.mj.voicerecoder.bean.ResultBean;
 import com.mj.voicerecoder.constant.Constant;
 import com.mj.voicerecoder.db.greendao.DaoSession;
@@ -56,6 +63,7 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -69,10 +77,12 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 public class MainActivity extends BaseActivity implements View.OnClickListener {
 
     private static final int DISPLAY_VIEW = 10086;
+    private static final int BIMAP_OK = 300000;
     private Camera mCamera;
     private TextureView mPreview;
     private ImageView iv_settings;
@@ -107,8 +117,12 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
     ApkInstaller mInstaller;
     //end vioce
 
+    //记录经纬度
+    public ArrayList<String> mLocations;
+
     private DaoSession mUserDao;
     private String mPath;
+    public static boolean isForeground = false;
 
     Handler mHandler = new Handler() {
         public void handleMessage(Message msg) {
@@ -119,15 +133,23 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
                 case DISPLAY_TYPE:
                     showToast();
                     break;
+                case BIMAP_OK:
+                    Bitmap bitmap = (Bitmap) msg.obj;
+                    saveicon(bitmap);
+                    break;
                 default:
                     break;
             }
         }
     };
 
+    private void saveicon(Bitmap bitmap) {
+        AppUtils.saveBitmapToFile(this, bitmap);
+    }
 
-    public void showToast(){
-        Toast.makeText(this,"视频上传成功",Toast.LENGTH_SHORT).show();
+
+    public void showToast() {
+        Toast.makeText(this, "视频上传成功", Toast.LENGTH_SHORT).show();
     }
 
     /**
@@ -151,6 +173,11 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
         //Log.e("mijie", "mac---" + AppUtils.getWifiMacAddress(this));
         // AppUtils.getLocation(this);
         // getData();
+
+        registerMessageReceiver();
+
+
+        mLocations = LocationTool.getInstance().getLocationData(this);
     }
 
     private void gotoApp() {
@@ -277,20 +304,22 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
             showTip("文件太大无法上传");
         }
         //获取经纬度
-        ArrayList<String> locations = LocationTool.getInstance().getLocationData(this);
-        if (locations == null && locations.size() != 2) {
+        // ArrayList<String> locations = LocationTool.getInstance().getLocationData(this);
+        if (mLocations == null && mLocations.size() != 2) {
             showTip("获取经纬度异常");
             return;
         }
-        Log.e("mijie", " 开始上传服务器 ");
+
+
+        Log.e("mijie", " 开始上传服务器 " + "mac : " + AppUtils.getWifiMacAddress(MainActivity.this) + " ;longitude: " + mLocations.get(0) + " ;latitude: " + mLocations.get(1));
         RequestBody fileBody = RequestBody.create(MediaType.parse("video/3gp"), file);
         RequestBody requestBody = new MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
                 .addFormDataPart("file", "test.mp4", fileBody)
-                .addFormDataPart("mac", "20:0c:c8:0d:20:d6")
-                .addFormDataPart("longitude", "123.393303")
-                .addFormDataPart("latitude", "35.121527")
-                .addFormDataPart("description", "test")
+                .addFormDataPart("mac", AppUtils.getWifiMacAddress(MainActivity.this))
+                .addFormDataPart("longitude", mLocations.get(0))
+                .addFormDataPart("latitude", mLocations.get(1))
+                .addFormDataPart("description", "监控视频上传")
                 .build();
         Request request = new Request.Builder().url(Constant.BASE_URI).post(requestBody).build();//创建Request
         try {
@@ -914,7 +943,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
         // Use the same size for recording mProfile.
         CamcorderProfile profile = CamcorderProfile.get(CamcorderProfile.QUALITY_HIGH);
         profile.videoFrameWidth = PREVIEW_WIGTH;//optimalSize.width;
-        profile.videoFrameHeight =PREVIEW_HIGTH; //optimalSize.height;
+        profile.videoFrameHeight = PREVIEW_HIGTH; //optimalSize.height;
         Log.e("mijie", "videoFrameWidth : " + profile.videoFrameWidth + "    ;videoFrameHeight : " + profile.videoFrameHeight);
         parameters.setPreviewSize(PREVIEW_WIGTH, PREVIEW_HIGTH);
         mCamera.setParameters(parameters);
@@ -1016,6 +1045,96 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
             if (!result) {
                 MainActivity.this.finish();
             }
+        }
+    }
+
+
+    @Override
+    protected void onResume() {
+        isForeground = true;
+        super.onResume();
+    }
+
+
+    @Override
+    protected void onPause() {
+        isForeground = false;
+        super.onPause();
+    }
+
+
+    // 处理Jpush消息
+    //for receive customer msg from jpush server
+    private MessageReceiver mMessageReceiver;
+    public static final String MESSAGE_RECEIVED_ACTION = "com.example.jpushdemo.MESSAGE_RECEIVED_ACTION";
+    public static final String KEY_TITLE = "title";
+    public static final String KEY_MESSAGE = "message";
+    public static final String KEY_EXTRAS = "extras";
+
+    public void registerMessageReceiver() {
+        mMessageReceiver = new MessageReceiver();
+        IntentFilter filter = new IntentFilter();
+        filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
+        filter.addAction(MESSAGE_RECEIVED_ACTION);
+        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver, filter);
+    }
+
+    public class MessageReceiver extends BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            try {
+                Log.e("mijie", "MessageReceiver: " + intent.getAction());
+                if (MESSAGE_RECEIVED_ACTION.equals(intent.getAction())) {
+                    String messge = intent.getStringExtra(KEY_MESSAGE);
+                    setCostomMsg(messge);
+                }
+            } catch (Exception e) {
+            }
+        }
+    }
+
+    private void setCostomMsg(String msg) {
+        final JpushBean result = JSON.parseObject(msg.substring(1, msg.length() - 1), JpushBean.class);
+
+        List<String> str = result.getContent();
+        for (String content : str) {
+            Log.e("mijie", " msg-type---> " + result.getType() + " msg-content---> " + content);
+        }
+        if (result.getType() == 2) {
+            showTip(str.get(0));
+        } else {
+            showTip("推送的是图片，开始下载");
+            new Thread() {
+                @Override
+                public void run() {
+                    Log.e("mijie", "dowm");
+                    downIcon(result.getContent().get(0));
+                }
+            }.start();
+        }
+    }
+
+    private void downIcon(String url) {
+        Log.e("mijie", "downIcon url : " + url);
+        try {
+            OkHttpClient client = new OkHttpClient();
+            //获取请求对象
+            Request request = new Request.Builder().url(url).build();
+            //获取响应体
+            ResponseBody body = client.newCall(request).execute().body();
+            //获取流
+            InputStream in = body.byteStream();
+            //转化为bitmap
+            Bitmap bitmap = BitmapFactory.decodeStream(in);
+            //使用Hanlder发送消息
+            Message msg = Message.obtain();
+            msg.what = BIMAP_OK;
+            Log.e("mijie", "send");
+            msg.obj = bitmap;
+            mHandler.sendMessage(msg);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 }

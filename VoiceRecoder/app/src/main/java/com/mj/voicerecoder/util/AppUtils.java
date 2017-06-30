@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.hardware.Camera;
 import android.location.Location;
 import android.location.LocationManager;
@@ -14,7 +15,12 @@ import android.os.Environment;
 import android.support.v4.app.ActivityCompat;
 import android.util.Log;
 import android.view.Surface;
+import android.widget.Toast;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -77,7 +83,7 @@ public class AppUtils {
      * 获取图片保存路径
      */
     public static String getPicPath() {
-        return Environment.getExternalStorageDirectory()+"/Pictures/";
+        return Environment.getExternalStorageDirectory() + "/Pictures/";
 
     }
 
@@ -124,5 +130,29 @@ public class AppUtils {
         WifiInfo mWifiInfo = ((WifiManager) context
                 .getSystemService(Context.WIFI_SERVICE)).getConnectionInfo();
         return (mWifiInfo == null) ? "NULL" : mWifiInfo.getBSSID();
+    }
+
+    /**
+     * 保存Bitmap至本地
+     */
+    public static void saveBitmapToFile(Context context, Bitmap bmp) {
+        String file_path = getAppPath()+"jpush/"+System.currentTimeMillis()+".jpg";
+        File file = new File(file_path);
+        if (!file.getParentFile().exists()) {
+            file.getParentFile().mkdirs();
+        }
+        FileOutputStream fOut;
+        try {
+            fOut = new FileOutputStream(file);
+            bmp.compress(Bitmap.CompressFormat.JPEG, 85, fOut);
+            fOut.flush();
+            fOut.close();
+            Log.e("mijie","save ok");
+            Toast.makeText(context,"图片保存成功",Toast.LENGTH_SHORT).show();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

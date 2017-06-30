@@ -1,0 +1,26 @@
+[
+    {
+        "outputFile": "/root/Downloads/VoiceRecoder/Application/build/intermediates/incremental/mergeReleaseResources/merged.dir/values-v16/values-v16.xml",
+        "map": [
+            {
+                "to": {
+                    "startLine": 2,
+                    "startColumn": 4,
+                    "startOffset": 55,
+                    "endColumn": 65,
+                    "endOffset": 116
+                },
+                "from": {
+                    "file": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/values-v16/values-v16.xml",
+                    "position": {
+                        "startLine": 2,
+                        "startColumn": 4,
+                        "startOffset": 55,
+                        "endColumn": 65,
+                        "endOffset": 116
+                    }
+                }
+            }
+        ]
+    }
+]

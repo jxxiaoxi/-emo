@@ -4,8 +4,13 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v4.content.LocalBroadcastManager;
 import android.text.TextUtils;
 import android.util.Log;
+
+import com.alibaba.fastjson.JSON;
+import com.mj.voicerecoder.MainActivity;
+import com.mj.voicerecoder.bean.JpushBean;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -34,7 +39,6 @@ public class JPushRecever extends BroadcastReceiver {
             } else if (JPushInterface.ACTION_MESSAGE_RECEIVED.equals(intent.getAction())) {
                 Log.d(TAG, "[MyReceiver] 接收到推送下来的自定义消息: " + bundle.getString(JPushInterface.EXTRA_MESSAGE));
                 processCustomMessage(context, bundle);
-
             } else if (JPushInterface.ACTION_NOTIFICATION_RECEIVED.equals(intent.getAction())) {
                 Log.d(TAG, "[MyReceiver] 接收到推送下来的通知");
                 int notifactionId = bundle.getInt(JPushInterface.EXTRA_NOTIFICATION_ID);
@@ -102,11 +106,11 @@ public class JPushRecever extends BroadcastReceiver {
 
     //send msg to MainActivity
     private void processCustomMessage(Context context, Bundle bundle) {
-//        if (MainActivity.isForeground) {
-//            String message = bundle.getString(JPushInterface.EXTRA_MESSAGE);
-//            String extras = bundle.getString(JPushInterface.EXTRA_EXTRA);
-//            Intent msgIntent = new Intent(MainActivity.MESSAGE_RECEIVED_ACTION);
-//            msgIntent.putExtra(MainActivity.KEY_MESSAGE, message);
+        if (MainActivity.isForeground) {
+            String message = bundle.getString(JPushInterface.EXTRA_MESSAGE);
+           // String extras = bundle.getString(JPushInterface.EXTRA_EXTRA);
+            Intent msgIntent = new Intent(MainActivity.MESSAGE_RECEIVED_ACTION);
+            msgIntent.putExtra(MainActivity.KEY_MESSAGE, message);
 //            if (!ExampleUtil.isEmpty(extras)) {
 //                try {
 //                    JSONObject extraJson = new JSONObject(extras);
@@ -118,7 +122,7 @@ public class JPushRecever extends BroadcastReceiver {
 //                }
 //
 //            }
-//            LocalBroadcastManager.getInstance(context).sendBroadcast(msgIntent);
-//        }
+            LocalBroadcastManager.getInstance(context).sendBroadcast(msgIntent);
+        }
     }
 }

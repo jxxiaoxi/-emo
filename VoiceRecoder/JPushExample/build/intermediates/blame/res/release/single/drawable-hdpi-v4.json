@@ -1,0 +1,18 @@
+[
+    {
+        "merged": "/root/Downloads/VoiceRecoder/JPushExample/build/intermediates/res/merged/release/drawable-hdpi-v4/richpush_progressbar.xml",
+        "source": "/root/Downloads/VoiceRecoder/JPushExample/res/drawable-hdpi/richpush_progressbar.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/JPushExample/build/intermediates/res/merged/release/drawable-hdpi-v4/tiledstripes.xml",
+        "source": "/root/Downloads/VoiceRecoder/JPushExample/res/drawable-hdpi/tiledstripes.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/JPushExample/build/intermediates/res/merged/release/drawable-hdpi-v4/richpush_btn_selector.xml",
+        "source": "/root/Downloads/VoiceRecoder/JPushExample/res/drawable-hdpi/richpush_btn_selector.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/JPushExample/build/intermediates/res/merged/release/drawable-hdpi-v4/corners_bg.xml",
+        "source": "/root/Downloads/VoiceRecoder/JPushExample/res/drawable-hdpi/corners_bg.xml"
+    }
+]

@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/release/color-v11/abc_background_cache_hint_selector_material_light.xml",
+        "source": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/color-v11/abc_background_cache_hint_selector_material_light.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/release/color-v11/abc_background_cache_hint_selector_material_dark.xml",
+        "source": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/color-v11/abc_background_cache_hint_selector_material_dark.xml"
+    }
+]

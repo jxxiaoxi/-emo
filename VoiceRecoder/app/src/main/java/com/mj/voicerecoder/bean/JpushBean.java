@@ -1,5 +1,7 @@
 package com.mj.voicerecoder.bean;
 
+import android.util.Log;
+
 import java.util.List;
 
 /**
@@ -8,10 +10,16 @@ import java.util.List;
 
 public class JpushBean {
 
+    /**
+     * type : 1
+     * content : ["http://www.lamago.net/mijiemonitor/upload/0220170630103539870074.jpeg"]
+     */
+
     private int type;
     private List<String> content;
 
     public void setType(int type) {
+        Log.e("mijie","setType : "+type);
         this.type = type;
     }
 
