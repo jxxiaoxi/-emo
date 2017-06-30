@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/debug/drawable-hdpi/tile.9.png",
+        "source": "/root/Downloads/VoiceRecoder/Application/src/main/res/drawable-hdpi/tile.9.png"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/debug/drawable-hdpi/ic_launcher.png",
+        "source": "/root/Downloads/VoiceRecoder/Application/src/main/res/drawable-hdpi/ic_launcher.png"
+    }
+]

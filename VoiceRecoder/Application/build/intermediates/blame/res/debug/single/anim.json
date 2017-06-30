@@ -1,0 +1,42 @@
+[
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/debug/anim/abc_slide_in_top.xml",
+        "source": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/anim/abc_slide_in_top.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/debug/anim/abc_shrink_fade_out_from_bottom.xml",
+        "source": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/anim/abc_shrink_fade_out_from_bottom.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/debug/anim/abc_fade_out.xml",
+        "source": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/anim/abc_fade_out.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/debug/anim/abc_popup_exit.xml",
+        "source": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/anim/abc_popup_exit.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/debug/anim/abc_slide_out_top.xml",
+        "source": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/anim/abc_slide_out_top.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/debug/anim/abc_fade_in.xml",
+        "source": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/anim/abc_fade_in.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/debug/anim/abc_slide_out_bottom.xml",
+        "source": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/anim/abc_slide_out_bottom.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/debug/anim/abc_grow_fade_in_from_bottom.xml",
+        "source": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/anim/abc_grow_fade_in_from_bottom.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/debug/anim/abc_slide_in_bottom.xml",
+        "source": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/anim/abc_slide_in_bottom.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/debug/anim/abc_popup_enter.xml",
+        "source": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/anim/abc_popup_enter.xml"
+    }
+]

@@ -1,0 +1,18 @@
+[
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/debug/layout-v21/notification_template_icon_group.xml",
+        "source": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/layout-v21/notification_template_icon_group.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/debug/layout-v21/notification_action.xml",
+        "source": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/layout-v21/notification_action.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/debug/layout-v21/notification_template_custom_big.xml",
+        "source": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/layout-v21/notification_template_custom_big.xml"
+    },
+    {
+        "merged": "/root/Downloads/VoiceRecoder/Application/build/intermediates/res/merged/debug/layout-v21/notification_action_tombstone.xml",
+        "source": "/root/.android/build-cache/eb56895f3a28bf775894d3e03c92583aed2118be/output/res/layout-v21/notification_action_tombstone.xml"
+    }
+]
