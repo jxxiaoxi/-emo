@@ -3,6 +3,7 @@ package com.mj.voicerecoder.util;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.hardware.Camera;
@@ -17,11 +18,14 @@ import android.util.Log;
 import android.view.Surface;
 import android.widget.Toast;
 
+import com.mj.voicerecoder.constant.Constant;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 
 /**
@@ -133,10 +137,10 @@ public class AppUtils {
     }
 
     /**
-     * 保存Bitmap至本地
+     * 保存服务器图片至本地
      */
-    public static void saveBitmapToFile(Context context, Bitmap bmp) {
-        String file_path = getAppPath()+"jpush/"+System.currentTimeMillis()+".jpg";
+    public static String saveBitmapToFile(Context context, Bitmap bmp) {
+        String file_path = getAppPath() + "jpush/" + System.currentTimeMillis() + ".jpg";
         File file = new File(file_path);
         if (!file.getParentFile().exists()) {
             file.getParentFile().mkdirs();
@@ -147,12 +151,45 @@ public class AppUtils {
             bmp.compress(Bitmap.CompressFormat.JPEG, 85, fOut);
             fOut.flush();
             fOut.close();
-            Log.e("mijie","save ok");
-            Toast.makeText(context,"图片保存成功",Toast.LENGTH_SHORT).show();
-        } catch (FileNotFoundException e) {
+            Log.e("mijie", "save ok");
+            Toast.makeText(context, "图片保存成功", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
             e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
+            return null;
         }
+
+        return file_path;
+    }
+
+    /**
+     * 保存服务器推送的命令
+     */
+    public static void putJpushText(Context context, String str) {
+        SharedPreferences sp = context.getSharedPreferences(Constant.SHAREDPREFERENCES_NAME, Context.MODE_PRIVATE);
+        sp.edit().putString("command", str).commit();
+    }
+
+    /**
+     * 获取服务器推送的命令
+     */
+    public static String getJpushText(Context context) {
+
+        SharedPreferences sp = context.getSharedPreferences(Constant.SHAREDPREFERENCES_NAME, Context.MODE_PRIVATE);
+
+        String str = sp.getString("command", "开始");
+        return str;
+    }
+
+    /**
+     * 获取authid
+     */
+    public static String getAuthid() {
+
+        Calendar c = Calendar.getInstance();
+        int day = c.get(Calendar.DAY_OF_MONTH);
+        int hour = c.get(Calendar.HOUR_OF_DAY);
+        int minute = c.get(Calendar.MINUTE);
+        int second = c.get(Calendar.SECOND);
+        return (String.valueOf(day) + String.valueOf(hour) + String.valueOf(minute) + String.valueOf(second));
     }
 }

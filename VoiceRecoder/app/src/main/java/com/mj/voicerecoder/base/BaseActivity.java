@@ -28,6 +28,8 @@ public class BaseActivity extends AppCompatActivity implements EasyPermissions.P
         if(!showActionBar()) {
             getSupportActionBar().hide();
         }
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
         //getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN); //全屏显示
     }
 

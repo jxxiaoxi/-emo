@@ -1,1 +1,1 @@
-include ':app', ':JPushExample', ':test', ':commonlib', ':facedemo', ':Application', ':yuvtest', ':locationdemo', ':okhttpdemo', ':okhttp3'
+include ':app', ':commonlib'

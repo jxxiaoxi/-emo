@@ -2,25 +2,34 @@ package com.mj.voicerecoder;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.graphics.ImageFormat;
+import android.graphics.Matrix;
+import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
+import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.media.CamcorderProfile;
 import android.media.MediaRecorder;
+import android.media.MediaScannerConnection;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
-import android.support.v4.content.LocalBroadcastManager;
+import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.TextureView;
@@ -29,13 +38,16 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.RadioGroup;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.alibaba.fastjson.JSON;
 import com.iflytek.cloud.ErrorCode;
+import com.iflytek.cloud.FaceRequest;
 import com.iflytek.cloud.InitListener;
 import com.iflytek.cloud.RecognizerListener;
 import com.iflytek.cloud.RecognizerResult;
+import com.iflytek.cloud.RequestListener;
 import com.iflytek.cloud.SpeechConstant;
 import com.iflytek.cloud.SpeechError;
 import com.iflytek.cloud.SpeechRecognizer;
@@ -43,13 +55,14 @@ import com.iflytek.cloud.SpeechUtility;
 import com.iflytek.cloud.ui.RecognizerDialog;
 import com.iflytek.cloud.ui.RecognizerDialogListener;
 import com.iflytek.sunflower.FlowerCollector;
+import com.mj.commonlib.http.helper.OkHttpHelper;
+import com.mj.commonlib.http.helper.ResultCallBack;
 import com.mj.voicerecoder.base.BaseActivity;
 import com.mj.voicerecoder.bean.JpushBean;
 import com.mj.voicerecoder.bean.ResultBean;
 import com.mj.voicerecoder.constant.Constant;
 import com.mj.voicerecoder.db.greendao.DaoSession;
-import com.mj.voicerecoder.http.ProgressListener;
-import com.mj.voicerecoder.http.ProgressResponseBody;
+import com.mj.voicerecoder.face.util.FaceUtil;
 import com.mj.voicerecoder.media.CameraHelper;
 import com.mj.voicerecoder.speech.setting.Settings;
 import com.mj.voicerecoder.speech.util.ApkInstaller;
@@ -57,46 +70,89 @@ import com.mj.voicerecoder.speech.util.FucUtil;
 import com.mj.voicerecoder.speech.util.JsonParser;
 import com.mj.voicerecoder.util.AppUtils;
 import com.mj.voicerecoder.util.LocationTool;
+import com.mj.voicerecoder.util.Voice;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
-import okhttp3.Interceptor;
+import butterknife.BindView;
+import butterknife.ButterKnife;
+import butterknife.OnClick;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-import okhttp3.ResponseBody;
 
 public class MainActivity extends BaseActivity implements View.OnClickListener {
 
     private static final int DISPLAY_VIEW = 10086;
     private static final int BIMAP_OK = 300000;
+    private static final int CAMERA_ID = 1;
+    private static final int STOP_RECODER_EVENT = 999;
+    //    private static final long RECODER_TIME = 30000;
+    private static final int SHOW_TIP = 5000;
     private Camera mCamera;
     private TextureView mPreview;
-    private ImageView iv_settings;
+    private Button iv_settings;
     private MediaRecorder mMediaRecorder;
     private File mOutputFile;
     private ImageView iv_recoder;
 
     private boolean isRecording = false;
     private static final String TAG = "mijie";
-    private Button bt_speech, bt_face_detect;
+    private Button bt_speech;
     private boolean isSpeeding = false;
     private static final int DISPLAY_TYPE = 2000;
     private static final int PREVIEW_HIGTH = 480;
     private static final int PREVIEW_WIGTH = 640;
+    //是否开启人脸识别
+    private boolean isDetect = false;
+    private FaceTask mFaceTask;
+    // authid为6-18个字符长度，用于唯一标识用户
+    private String mAuthid = null;
+    // 进度对话框
+    private ProgressDialog mProDialog;
+    // FaceRequest对象，集成了人脸识别的各种功能
+    private FaceRequest mFaceRequest;
+    private final int REQUEST_PICTURE_CHOOSE = 1;
+    private final int REQUEST_CAMERA_IMAGE = 2;
+    // 拍照得到的照片文件
+    private File mPictureFile;
+    private Bitmap mImage = null;
+    private byte[] mImageData = null;
+    public static final int REPREVIEW = 9999;
+    public static boolean TAKE_PIC = false;
+    private long mTime;
+    //推送开始的标记,在自动发现人脸中用到
+    private boolean isJpushStart = false;
+
+    @BindView(R.id.surface_view)
+    TextureView surfaceView;
+    @BindView(R.id.bt_register)
+    Button btRegister;
+    @BindView(R.id.online_verify)
+    Button btVerify;
+    @BindView(R.id.online_authid)
+    EditText onlineAuthid;
+    @BindView(R.id.online_pick)
+    Button onlinePick;
+    @BindView(R.id.online_camera)
+    Button onlineCamera;
+    @BindView(R.id.bt_detect)
+    Button btDetect;
 
     //start vioce
     // 语音听写对象
@@ -104,7 +160,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
     // 语音听写UI
     private RecognizerDialog mIatDialog;
 
-    private EditText et_voice_result;
+    private TextView et_voice_result;
     // 用HashMap存储听写结果
     private HashMap<String, String> mIatResults = new LinkedHashMap<String, String>();
 
@@ -123,6 +179,10 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
     private DaoSession mUserDao;
     private String mPath;
     public static boolean isForeground = false;
+    private static final int YUV_1080_SIZE = 3110400;
+    private byte[] mImageCallbackBuffer = new byte[YUV_1080_SIZE];
+    public static final int TAKE_PIC_TIME = 10000;
+    private boolean isStartByspeeh = false;
 
     Handler mHandler = new Handler() {
         public void handleMessage(Message msg) {
@@ -135,7 +195,17 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
                     break;
                 case BIMAP_OK:
                     Bitmap bitmap = (Bitmap) msg.obj;
-                    saveicon(bitmap);
+                    saveJpushicon(bitmap);
+                    break;
+                case STOP_RECODER_EVENT:
+                    Log.e(TAG, "STOP_RECODER_EVENT");
+                    stopRecord();
+                    break;
+                case REPREVIEW:
+                    rePlayPreview();
+                    break;
+                case SHOW_TIP:
+                    showFaceTip((String) msg.obj);
                     break;
                 default:
                     break;
@@ -143,8 +213,19 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
         }
     };
 
-    private void saveicon(Bitmap bitmap) {
-        AppUtils.saveBitmapToFile(this, bitmap);
+    /**
+     * 保存jpush图片
+     */
+    private void saveJpushicon(Bitmap bitmap) { //registerFace()
+        String url = AppUtils.saveBitmapToFile(this, bitmap);
+        if (url != null) {//当jpsuh推送的图片保存后，注册到讯飞服务器，进行人脸识别
+            isJpushStart = true;
+            onlineAuthid.setText(AppUtils.getAuthid());//自动设置ID
+            Log.e(TAG, "imagetoByte");
+            imagetoByte(url);
+            Log.e(TAG, "registerFace");
+            registerFace();//自动进行人脸注册
+        }
     }
 
 
@@ -163,43 +244,22 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        iv_settings = (ImageView) findViewById(R.id.iv_settings);
+        iv_settings = (Button) findViewById(R.id.iv_settings);
         iv_settings.setOnClickListener(this);
-        bt_face_detect = (Button) findViewById(R.id.bt_face_detect);
-        bt_face_detect.setOnClickListener(this);
         checkoutPermissions();//获取权限
 
-        //AppUtils.getPhoneMacAddress(this);
-        //Log.e("mijie", "mac---" + AppUtils.getWifiMacAddress(this));
-        // AppUtils.getLocation(this);
-        // getData();
-
         registerMessageReceiver();
-
-
-        mLocations = LocationTool.getInstance().getLocationData(this);
     }
 
-    private void gotoApp() {
-        new Thread() {
-            @Override
-            public void run() {
-                //postData();
-                //testProgess();
-                //postDataToServer();
-            }
-        }.start();
 
-
+    /**
+     * 初始化app
+     */
+    private void initApp() {
         initCameraView();//初始化camera view
         initVoiceView();//初始voice view
         //获取位置
-        ArrayList<String> locations = LocationTool.getInstance().getLocationData(this);
-        if (locations != null) {
-            for (String str : locations) {
-                Log.e("mijie", "xxxxxxx" + str);
-            }
-        }
+        mLocations = LocationTool.getInstance().getLocationData(this);
 
         // 使用SpeechRecognizer对象，可根据回调消息自定义界面；
         mIat = SpeechRecognizer.createRecognizer(this, mInitListener);
@@ -217,101 +277,53 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
         }
 
         bt_speech.setOnClickListener(this);
-    }
 
+        //face start
+        mProDialog = new ProgressDialog(MainActivity.this);
+        mProDialog.setCancelable(true);
+        mProDialog.setTitle("请稍后");
 
-    private void testProgess() {
-        Log.e("mijie", "testProgess ");
-
-//        File file = new File("/storage/emulated/0/voicerecoder/CameraSample/VID_20170628_095258.mp4");
-//        RequestBody fileBody = RequestBody.create(MediaType.parse("video/3gp"), file);
-//        RequestBody requestBody = new MultipartBody.Builder()
-//                .setType(MultipartBody.FORM)
-//                .addFormDataPart("file", "test.mp4", fileBody)
-//                .addFormDataPart("mac","adfasdfadff12bbb")
-//                .addFormDataPart("longitude","121.393303")
-//                .addFormDataPart("latitude","31.121527")
-//                .addFormDataPart("description","test")
-//                .build();
-//        Request request = new Request.Builder()
-//                .url(Constant.BASE_URI)
-//                .post(requestBody)
-//                .build();
-
-        Request request = new Request.Builder()
-                .url("https://publicobject.com/helloworld.txt")
-                .build();
-        final ProgressListener progressListener = new ProgressListener() {
+        mProDialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
 
             @Override
-            public void update(long bytesRead, long contentLength, boolean done) {
-                Log.e("mijie", "bytesRead :  " + bytesRead);
-                Log.e("mijie", "contentLength :  " + contentLength);
-                Log.e("mijie", "done :  " + done);
+            public void onCancel(DialogInterface dialog) {
+                // cancel进度框时,取消正在进行的操作
+                if (null != mFaceRequest) {
+                    mFaceRequest.cancel();
+                }
             }
-        };
-
-        OkHttpClient client = new OkHttpClient.Builder()
-                .connectTimeout(1000, TimeUnit.SECONDS)
-                .writeTimeout(1000, TimeUnit.SECONDS)
-                .readTimeout(3000, TimeUnit.SECONDS)
-                .addNetworkInterceptor(new Interceptor() {
-                    @Override
-                    public Response intercept(Interceptor.Chain chain) throws IOException {
-                        Response originalResponse = chain.proceed(chain.request());
-                        Log.e("mijie", "addNetworkInterceptor ");
-                        return originalResponse.newBuilder()
-                                .body(new ProgressResponseBody(originalResponse.body(), progressListener))
-                                .build();
-                    }
-                })
-                .build();
-        try {
-            Response response = client.newCall(request).execute();
-            Log.e("mijie", "ok :  " + response.toString());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
+        });
+        mFaceRequest = new FaceRequest(this);
+        ButterKnife.bind(this);
+        //face end
     }
-
 
     /**
      * post 数据请求
      */
-    private void postData() {
-        OkHttpClient client = new OkHttpClient.Builder()
-                .connectTimeout(10000, TimeUnit.SECONDS)
-                .writeTimeout(10000, TimeUnit.SECONDS)
-                .readTimeout(20000, TimeUnit.SECONDS)
-                .build();//创建client
-
-        //  OkHttpClient client = new OkHttpClient();//创建client
-
-        //  client.Builder
+    private void postDataToServer() {
         if (mPath == null) {
-            //showTip("没有可以上传的文件");
+            asynShowTip("没有可以上传的文件");
             return;
         }
-        // File file = new File("/storage/emulated/0/voicerecoder/CameraSample/VID_20170629_180119.mp4");
+        //File file = new File("/storage/emulated/0/voicerecoder/CameraSample/VID_20170704_113536.mp4");
         File file = new File(mPath);
         if (!file.exists()) {
-            showTip("文件不存在，请修改文件路径");
+            asynShowTip("文件不存在，请修改文件路径");
             return;
         }
-        Log.e("mijie", " postData ");
+        Log.e(TAG, " postData ");
         if (file.length() / 1024 / 1024f > 10) {
-            showTip("文件太大无法上传");
+            asynShowTip("文件太大无法上传");
         }
-        //获取经纬度
-        // ArrayList<String> locations = LocationTool.getInstance().getLocationData(this);
+
         if (mLocations == null && mLocations.size() != 2) {
-            showTip("获取经纬度异常");
+            asynShowTip("获取经纬度异常");
             return;
         }
 
 
-        Log.e("mijie", " 开始上传服务器 " + "mac : " + AppUtils.getWifiMacAddress(MainActivity.this) + " ;longitude: " + mLocations.get(0) + " ;latitude: " + mLocations.get(1));
+        Log.e(TAG, " 开始上传服务器 " + "mac : " + AppUtils.getWifiMacAddress(MainActivity.this) + " ;longitude: " + mLocations.get(0) + " ;latitude: " + mLocations.get(1));
         RequestBody fileBody = RequestBody.create(MediaType.parse("video/3gp"), file);
         RequestBody requestBody = new MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
@@ -321,156 +333,26 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
                 .addFormDataPart("latitude", mLocations.get(1))
                 .addFormDataPart("description", "监控视频上传")
                 .build();
-        Request request = new Request.Builder().url(Constant.BASE_URI).post(requestBody).build();//创建Request
-        try {
-            Response response = client.newCall(request).execute(); //执行上传
-
-            ResultBean result = JSON.parseObject(response.body().string(), ResultBean.class);
-            if (result.getErrorCode() == 0) {
-                mHandler.sendEmptyMessage(DISPLAY_TYPE);
+        OkHttpHelper.getOkHttpInstance(this).uploadFiles(Constant.BASE_URI, requestBody, new ResultCallBack() {
+            @Override
+            public void onSuccess(Response response) {
+                ResultBean result = null;
+                try {
+                    result = JSON.parseObject(response.body().string(), ResultBean.class);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                if (result.getErrorCode() == 0) {
+                    //mHandler.sendEmptyMessage(DISPLAY_TYPE);
+                    asynShowTip("上传成功");
+                }
             }
 
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-//        File file = new File("/storage/emulated/0/voicerecoder/CameraSample/VID_20170628_095258.mp4");
-//        if (!file.exists())
-//        {
-//            Toast.makeText(MainActivity.this, "文件不存在，请修改文件路径", Toast.LENGTH_SHORT).show();
-//            return;
-//        }
-//        Map<String, String> params = new HashMap<>();
-//        params.put("mac","adfasdfadff12bbb");
-//        params.put("longitude","121.417074");
-//        params.put("latitude","31.188535");
-//        params.put("description","ceshi");
-//        params.put("description","ceshi");
-//        params.put("Content-Type","video/3gp");
-//        Map<String, String> headers = new HashMap<>();
-//        headers.put("Content-Type", "video/3gp");
-//        OkHttpUtils
-//                .post()
-//
-//                //.addFile("mFile","VID_20170628_095258.mp4",file)
-//                .url(Constant.BASE_URI)
-//                .params(params)
-//               // .headers(headers)
-//               // .addParams("Content-Type","video/3gp")
-//                .build()
-//                .execute(new StringCallback() {
-//                    @Override
-//                    public void onError(Call call, Exception e, int id) {
-//                        Log.e(TAG, "net error : " + e.toString());
-//                    }
-//
-//                    @Override
-//                    public void inProgress(float progress, long total, int id) {
-//                        super.inProgress(progress, total, id);
-//                        Log.e(TAG, "progress : " + progress + "   ;total : "+total);
-//                    }
-//
-//                    @Override
-//                    public void onResponse(String response, int id) {
-//                        Log.e(TAG, "response :  " + response);
-//                        // parseData(response);
-//                    }
-//                });
-    }
-
-
-//    //多文件上传（带进度）
-//    private void upload() {
-//        //这个是非ui线程回调，不可直接操作UI
-//        final ProgressListener progressListener = new ProgressListener() {
-//            @Override
-//            public void onProgress(long bytesWrite, long contentLength, boolean done) {
-//                Log.i("TAG", "bytesWrite:" + bytesWrite);
-//                Log.i("TAG", "contentLength" + contentLength);
-//                Log.i("TAG", (100 * bytesWrite) / contentLength + " % done ");
-//                Log.i("TAG", "done:" + done);
-//                Log.i("TAG", "================================");
-//            }
-//        };
-//
-//
-//        //这个是ui线程回调，可直接操作UI
-//        UIProgressListener uiProgressRequestListener = new UIProgressListener() {
-//            @Override
-//            public void onUIProgress(long bytesWrite, long contentLength, boolean done) {
-//                Log.i("TAG", "bytesWrite:" + bytesWrite);
-//                Log.i("TAG", "contentLength" + contentLength);
-//                Log.i("TAG", (100 * bytesWrite) / contentLength + " % done ");
-//                Log.i("TAG", "done:" + done);
-//                Log.i("TAG", "================================");
-//                //ui层回调,设置当前上传的进度值
-//                int progress = (int) ((100 * bytesWrite) / contentLength);
-////                uploadProgress.setProgress(progress);
-////                uploadTV.setText("上传进度值：" + progress + "%");
-//            }
-//
-//            //上传开始
-//            @Override
-//            public void onUIStart(long bytesWrite, long contentLength, boolean done) {
-//                super.onUIStart(bytesWrite, contentLength, done);
-//                Toast.makeText(getApplicationContext(),"开始上传",Toast.LENGTH_SHORT).show();
-//            }
-//
-//            //上传结束
-//            @Override
-//            public void onUIFinish(long bytesWrite, long contentLength, boolean done) {
-//                super.onUIFinish(bytesWrite, contentLength, done);
-//                //uploadProgress.setVisibility(View.GONE); //设置进度条不可见
-//                Toast.makeText(getApplicationContext(),"上传成功",Toast.LENGTH_SHORT).show();
-//
-//            }
-//        };
-//
-//        HashMap<String, String> params = new HashMap<>();
-//        params.put("mac","adfasdfadff12bbb");
-//        params.put("longitude","121.417074");
-//        params.put("latitude","31.188535");
-//        params.put("description","ceshi");
-//        params.put("description","ceshi");
-//        params.put("Content-Type","video/3gp");
-//        //开始Post请求,上传文件
-//       OKHttpUtils.doPostRequest(Constant.BASE_URI, params, initUploadFile(), new Callback() {
-//           @Override
-//           public void onFailure(Call call, IOException e) {
-//Log.e(TAG,"fail");
-//           }
-//
-//           @Override
-//           public void onResponse(Call call, Response response) throws IOException {
-//               Log.e(TAG,"ok --> "+ response.body().toString());
-//           }
-//       });
-//
-//    }
-//
-//
-//    //初始化上传文件的数据
-//    private List<String> initUploadFile(){
-//        List<String> fileNames = new ArrayList<>();
-//        fileNames.add("/storage/emulated/0/voicerecoder/CameraSample/VID_20170628_095258.mp4"); //视频
-//        return fileNames;
-//    }
-
-
-    /**
-     * 　解析网络数据
-     */
-    private void parseData(String json) {
-
-//        ResultBean result = JSON.parseObject(json, ResultBean.class);
-//
-//        showTip("联网请求成功，本次数据为==>>> " + result.getAlevel());
-
-
-        ResultBean result = JSON.parseObject(json, ResultBean.class);
-        if (result.getErrorCode() == 0) {
-            showTip("视频上传成功");
-        }
+            @Override
+            public void onFailure(IOException failstr) {
+                asynShowTip("上传失败");
+            }
+        });
     }
 
     private void initCameraView() {
@@ -486,7 +368,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
 
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int i, int i1) {
-            mCamera = Camera.open();
+            safeCameraOpen(CAMERA_ID);
             AppUtils.setCameraDisplayOrientation(MainActivity.this, 0, mCamera);
             try {
                 mCamera.setPreviewTexture(surfaceTexture);
@@ -503,6 +385,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
         @Override
         public boolean onSurfaceTextureDestroyed(SurfaceTexture surfaceTexture) {
             if (mCamera != null) {
+                Log.e(TAG, "onSurfaceTextureDestroyed  ");
                 mCamera.stopPreview();
             }
             return true;
@@ -513,18 +396,92 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
         }
     }
 
+
+    /**
+     * 打开camera
+     */
+    private boolean safeCameraOpen(int id) {
+        boolean opened = false;
+        try {
+            releaseCameraAndPreview();
+            mCamera = Camera.open(id);
+            Camera.Parameters parameters = mCamera.getParameters();
+            List<Camera.Size> mSupportedPreviewSizes = parameters.getSupportedPreviewSizes();
+            List<Camera.Size> mSupportedVideoSizes = parameters.getSupportedVideoSizes();
+            Camera.Size optimalSize = CameraHelper.getOptimalVideoSize(mSupportedVideoSizes,
+                    mSupportedPreviewSizes, surfaceView.getWidth(), surfaceView.getHeight());
+
+            // Use the same size for recording mProfile.
+            CamcorderProfile profile = CamcorderProfile.get(CamcorderProfile.QUALITY_HIGH);
+            profile.videoFrameWidth = optimalSize.width;
+            profile.videoFrameHeight = optimalSize.height;
+
+            parameters.setPreviewSize(profile.videoFrameWidth, profile.videoFrameHeight);
+            mCamera.setParameters(parameters);
+            AppUtils.setCameraDisplayOrientation(this, id, mCamera);
+            setPreviewFrame();
+            opened = (mCamera != null);
+        } catch (Exception e) {
+            Log.e(getString(R.string.app_name), "fail to open camera");
+            e.printStackTrace();
+        }
+        return opened;
+    }
+
+    /**
+     * 每次录像后，必须重新设置，不然无法监听到PreviewCallback
+     */
+    public void setPreviewFrame() {
+        mCamera.addCallbackBuffer(mImageCallbackBuffer);
+
+        mCamera.setPreviewCallbackWithBuffer(new Camera.PreviewCallback() {
+            @Override
+            public void onPreviewFrame(byte[] bytes, Camera camera) {
+                // Log.e(TAG, " onPreviewFrame : " + isDetect);
+                if ((System.currentTimeMillis() - mTime) > TAKE_PIC_TIME && isDetect) {
+                    mTime = System.currentTimeMillis();
+                    TAKE_PIC = false;
+                    if (null != mFaceTask) {
+                        switch (mFaceTask.getStatus()) {
+                            case RUNNING:
+                                return;
+                            case PENDING:
+                                mFaceTask.cancel(false);
+                                break;
+                        }
+                    }
+                    mFaceTask = new FaceTask(bytes);
+                    mFaceTask.execute((Void) null);
+                }
+                if (mCamera != null) {
+                    mCamera.addCallbackBuffer(bytes);
+                }
+            }
+        });
+    }
+
+    private void releaseCameraAndPreview() {
+        Log.e(TAG, "releaseCameraAndPreview  ");
+        //mPreview.setCamera(null);
+        if (mCamera != null) {
+            mCamera.release();
+            mCamera = null;
+        }
+    }
+
+
     private void showTip(final String str) {
        /* Toast toast = Toast.makeText(this, "", Toast.LENGTH_SHORT);
         toast.setText(str);
         toast.show();*/
 
-        Log.e("mijie", str);
+        Log.e(TAG, str);
     }
 
     //start vioce
     private void initVoiceView() {
         bt_speech = (Button) findViewById(R.id.bt_speech);
-        et_voice_result = (EditText) findViewById(R.id.et_voice_result);
+        et_voice_result = (TextView) findViewById(R.id.et_voice_result);
         RadioGroup group = (RadioGroup) findViewById(R.id.radioGroup);
         group.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
 
@@ -657,6 +614,8 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
             if (isLast) {
                 // TODO 最后的结果
                 isSpeeding = false;
+                setSpeedState();
+//                stopRecord();
             }
         }
 
@@ -722,14 +681,19 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
             resultBuffer.append(mIatResults.get(key));
         }
 
-        if (getString(R.string.start_recoder).equals(text.trim())) {
+        Log.e(TAG, "jpush context : " + AppUtils.getJpushText(MainActivity.this));
+        if (text.trim() != null && text.contains((AppUtils.getJpushText(MainActivity.this)))) {
+            isStartByspeeh = true;
             startRecord();
-        } else if (getString(R.string.stop_recoder).equals(text.trim())) {
-            stopRecord();
         }
 
+//        if (getString(R.string.start_recoder).equals(text.trim())) {
+//            startRecord();
+//        } else if (getString(R.string.stop_recoder).equals(text.trim())) {
+//            stopRecord();
+//        }
+
         et_voice_result.setText(resultBuffer.toString());
-        et_voice_result.setSelection(et_voice_result.length());
     }
 
 
@@ -780,12 +744,13 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
     public void checkoutPermissions() {
         String[] perms = {Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO, Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION};
         if ((Build.VERSION.SDK_INT < 23) || hasPermissions(perms)) {//已经具有相关的权限
-            gotoApp();
+            initApp();
         } else {
             gainPermission(getString(R.string.permissions_fail), new PermissionCallback() {
                 @Override
                 public void gainPermissionSuccess() {
-                    gotoApp();
+                    initApp();
+                    rePlayPreview();
                 }
 
                 @Override
@@ -794,88 +759,54 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
                 }
             }, perms);
         }
-
-//        if (Build.VERSION.SDK_INT > 22) {
-//            if (isPermissionGranted(Manifest.permission.CAMERA)
-//                    || isPermissionGranted(Manifest.permission.RECORD_AUDIO)
-//                    || isPermissionGranted(Manifest.permission.READ_EXTERNAL_STORAGE)) {
-//                //申请camera权限
-//                this.requestPermissions(new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO, Manifest.permission.READ_EXTERNAL_STORAGE}, CAMERA_OK);
-//            } else {
-//                //已经获取到摄像头权限
-//                //  prepareVideoRecorder();
-//                setSpeedState(false);
-//            }
-//        } else {
-//            //6.0以下不需要动态获取权限
-//            setSpeedState(true);
-//            //  prepareVideoRecorder();
-//        }
     }
 
-
-//    /**
-//     * 判断权限是否已经获取
-//     */
-//    private boolean isPermissionGranted(String permission) {
-//        return ContextCompat.checkSelfPermission(MainActivity.this, permission) != PackageManager.PERMISSION_GRANTED;
-//    }
-
-//    @Override
-//    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-//        switch (requestCode) {
-//            case CAMERA_OK:
-//                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-//                    //已获取权限,初始化预览界面
-//                } else {
-//                    //这里是拒绝给APP摄像头权限，给个提示什么的说明一下都可以。
-//                    Toast.makeText(MainActivity.this, "请手动打开相机权限", Toast.LENGTH_SHORT).show();
-//                    setSpeedState(false);
-//                }
-//                break;
-//            default:
-//                break;
-//        }
-//
-//    }
-
-    private void stopRecord() {
+    /**
+     * 停止录像
+     */
+    private synchronized void stopRecord() {
         Log.e(TAG, "stopRecord : " + isRecording);
         if (isRecording) {
             try {
                 mMediaRecorder.stop();  // stop the recording
                 iv_recoder.setVisibility(View.INVISIBLE);
+                if (isStartByspeeh) {//如果暂停前的操作是语音识别，那么停止录音后则开启语音识别
+                    collectVioceing();
+                    isStartByspeeh = false;
+                }
                 postDataToServer();
 
             } catch (RuntimeException e) {
+                Log.e(TAG,"RuntimeException ==> "+e.getMessage());
                 Log.d(TAG, "RuntimeException: stop() is called immediately after start()");
                 mOutputFile.delete();
             }
             releaseMediaRecorder();
-            mCamera.lock();
+            if (mCamera != null)
+                mCamera.lock();
 
             isRecording = false;
-            releaseCamera();
+            //releaseCamera();
+            rePlayPreview();
 
         }
-    }
-
-    private void postDataToServer() {
-        new Thread() {
-            @Override
-            public void run() {
-                postData();
-            }
-        }.start();
     }
 
 
     /**
      * 开始录像
      */
-    public void startRecord() {
+    public synchronized void startRecord() {
+        Log.e(TAG, "startRecord : " + isRecording);
         if (!isRecording) {
             new MediaPrepareTask().execute(null, null, null);
+
+            collectVioceing();//开始录像，如果语音识别还在，则关闭
+
+            //开启录制后，20s停止录制
+            Message message = new Message();
+            message.what = STOP_RECODER_EVENT;
+            mHandler.sendMessageDelayed(message, Constant.RECODER_TIME);//如果没有其他的手动暂停,30s后自动暂停
         }
     }
 
@@ -917,12 +848,19 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
         releaseMediaRecorder();
         releaseCamera();
         stopCollectVioce();
+        if (mFaceTask != null && mFaceTask.getStatus() != AsyncTask.Status.FINISHED) {
+            mFaceTask.cancel(true);
+        }
+
+        if (mMessageReceiver != null)
+            unregisterReceiver(mMessageReceiver);
     }
 
     /**
      * 释放ｃａｍｅｒａ资源
      */
     private void releaseCamera() {
+        Log.e(TAG, "releaseCamera ");
         if (mCamera != null) {
             // release the camera for other applications
             mCamera.release();
@@ -931,33 +869,21 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
     }
 
 
+    /**
+     * 初始化　MediaRecorder
+     */
     private boolean prepareVideoRecorder() {
-        mCamera = CameraHelper.getDefaultCameraInstance();
-
-        Camera.Parameters parameters = mCamera.getParameters();
-        List<Camera.Size> mSupportedPreviewSizes = parameters.getSupportedPreviewSizes();
-        List<Camera.Size> mSupportedVideoSizes = parameters.getSupportedVideoSizes();
-        Camera.Size optimalSize = CameraHelper.getOptimalVideoSize(mSupportedVideoSizes,
-                mSupportedPreviewSizes, mPreview.getWidth(), mPreview.getHeight());
-
-        // Use the same size for recording mProfile.
         CamcorderProfile profile = CamcorderProfile.get(CamcorderProfile.QUALITY_HIGH);
         profile.videoFrameWidth = PREVIEW_WIGTH;//optimalSize.width;
         profile.videoFrameHeight = PREVIEW_HIGTH; //optimalSize.height;
-        Log.e("mijie", "videoFrameWidth : " + profile.videoFrameWidth + "    ;videoFrameHeight : " + profile.videoFrameHeight);
-        parameters.setPreviewSize(PREVIEW_WIGTH, PREVIEW_HIGTH);
-        mCamera.setParameters(parameters);
-        try {
-            mCamera.setPreviewTexture(mPreview.getSurfaceTexture());
-        } catch (IOException e) {
-            Log.e(TAG, "Surface texture is unavailable or unsuitable" + e.getMessage());
-            return false;
-        }
 
         mMediaRecorder = new MediaRecorder();
         // Step 1: Unlock and set camera to MediaRecorder
-        mCamera.unlock();
-        mMediaRecorder.setCamera(mCamera);
+        Log.e(TAG, " mCamera : " + mCamera);
+        if (mCamera != null) {
+            mCamera.unlock();
+            mMediaRecorder.setCamera(mCamera);
+        }
 
         // Step 2: Set sources
         mMediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
@@ -971,7 +897,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
         // Step 4: Set output file
         mOutputFile = CameraHelper.getOutputMediaFile(CameraHelper.MEDIA_TYPE_VIDEO);
         mPath = mOutputFile.getAbsolutePath();
-        Log.e("mijie", "mOutputFile name :  " + mOutputFile.getAbsolutePath());
+        Log.e(TAG, "mOutputFile name :  " + mOutputFile.getAbsolutePath());
 
         if (mOutputFile == null) {
             return false;
@@ -997,17 +923,11 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.bt_speech:
+                isStartByspeeh = false;
                 collectVioceing();
                 break;
             case R.id.iv_settings:
                 startActivity(new Intent(this, Settings.class));
-                break;
-            case R.id.bt_face_detect:
-                releaseMediaRecorder();
-                releaseCamera();
-                stopCollectVioce();
-                startActivity(new Intent(this, FaceDetectActivity.class));
-                finish();
                 break;
         }
     }
@@ -1016,6 +936,10 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
      * 声音听写
      */
     private void collectVioceing() {
+        if (isDetect) {
+            //showFaceTip("人脸识别和语音听写暂不支持同时打开");
+            return;
+        }
         if (isSpeeding) {
             stopCollectVioce();
         } else {
@@ -1035,6 +959,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
             } else {
                 // prepare didn't work, release the camera
                 releaseMediaRecorder();
+                isRecording = false;
                 return false;
             }
             return true;
@@ -1076,7 +1001,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
         IntentFilter filter = new IntentFilter();
         filter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
         filter.addAction(MESSAGE_RECEIVED_ACTION);
-        LocalBroadcastManager.getInstance(this).registerReceiver(mMessageReceiver, filter);
+        registerReceiver(mMessageReceiver, filter);
     }
 
     public class MessageReceiver extends BroadcastReceiver {
@@ -1084,7 +1009,7 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
         @Override
         public void onReceive(Context context, Intent intent) {
             try {
-                Log.e("mijie", "MessageReceiver: " + intent.getAction());
+                Log.e(TAG, "MessageReceiver: " + intent.getAction());
                 if (MESSAGE_RECEIVED_ACTION.equals(intent.getAction())) {
                     String messge = intent.getStringExtra(KEY_MESSAGE);
                     setCostomMsg(messge);
@@ -1095,46 +1020,513 @@ public class MainActivity extends BaseActivity implements View.OnClickListener {
     }
 
     private void setCostomMsg(String msg) {
-        final JpushBean result = JSON.parseObject(msg.substring(1, msg.length() - 1), JpushBean.class);
-
-        List<String> str = result.getContent();
-        for (String content : str) {
-            Log.e("mijie", " msg-type---> " + result.getType() + " msg-content---> " + content);
+        final ArrayList<JpushBean> results = (ArrayList<JpushBean>) JSON.parseArray(msg, JpushBean.class);
+        if (results == null) {
+            return;
         }
-        if (result.getType() == 2) {
-            showTip(str.get(0));
-        } else {
-            showTip("推送的是图片，开始下载");
-            new Thread() {
-                @Override
-                public void run() {
-                    Log.e("mijie", "dowm");
-                    downIcon(result.getContent().get(0));
+        Log.e(TAG, "setCostomMsg " + results.get(0).getContent());
+
+        for (JpushBean jb : results) {
+            if (jb.getType() == 2) {//发送的是文字
+                if (jb.getContent() != null) {
+                    for (String str : jb.getContent()) {
+                        showFaceTip(str);
+                        AppUtils.putJpushText(MainActivity.this, str);
+                    }
+                    //当推送过来的是指令时，自动开启语音收集
+                    collectVioceing();
                 }
-            }.start();
+
+            } else {
+                if (jb.getContent() != null) {
+                    for (final String str : jb.getContent()) {
+                        showFaceTip("推送的是图片，开始下载");
+                        downIcon(str);
+                    }
+                }
+            }
         }
     }
 
+
+    /**
+     * 下载服务器图片 test
+     */
     private void downIcon(String url) {
-        Log.e("mijie", "downIcon url : " + url);
-        try {
-            OkHttpClient client = new OkHttpClient();
-            //获取请求对象
-            Request request = new Request.Builder().url(url).build();
-            //获取响应体
-            ResponseBody body = client.newCall(request).execute().body();
-            //获取流
-            InputStream in = body.byteStream();
-            //转化为bitmap
-            Bitmap bitmap = BitmapFactory.decodeStream(in);
-            //使用Hanlder发送消息
-            Message msg = Message.obtain();
-            msg.what = BIMAP_OK;
-            Log.e("mijie", "send");
-            msg.obj = bitmap;
-            mHandler.sendMessage(msg);
-        } catch (IOException e) {
-            e.printStackTrace();
+        Log.e(TAG, "URL " + url);
+        OkHttpHelper.getOkHttpInstance(this).downLoadFiles(url, new ResultCallBack() {
+            @Override
+            public void onSuccess(Response response) {
+                //获取流
+                InputStream in = response.body().byteStream();
+                //转化为bitmap
+                Bitmap bitmap = BitmapFactory.decodeStream(in);
+                //使用Hanlder发送消息
+                Message msg = Message.obtain();
+                msg.what = BIMAP_OK;
+                Log.e(TAG, "send");
+                msg.obj = bitmap;
+                mHandler.sendMessage(msg);
+                updateGallery(AppUtils.getAppPath() + "jpush/");
+            }
+
+            @Override
+            public void onFailure(IOException ex) {
+                Log.e(TAG, "onFailure");
+            }
+        });
+    }
+
+
+    //face start
+
+    /**
+     * 重新PlayPreview
+     */
+    private void rePlayPreview() {
+        if (mCamera != null) {
+            mCamera.startPreview();
+            setPreviewFrame();
         }
     }
+
+    @OnClick({R.id.online_pick, R.id.online_camera, R.id.bt_register, R.id.online_verify, R.id.bt_detect})
+    public void onViewClicked(View view) {
+        int ret = ErrorCode.SUCCESS;
+        switch (view.getId()) {
+            case R.id.bt_detect:
+                Log.e(TAG, " bt_detect click : " + isDetect);
+                detectFace();
+                break;
+            case R.id.online_pick:
+                Intent intent = new Intent();
+                intent.setType("image/*");
+                intent.setAction(Intent.ACTION_PICK);
+                startActivityForResult(intent, REQUEST_PICTURE_CHOOSE);
+                break;
+            case R.id.online_camera:
+                takePhoto();
+                break;
+            case R.id.bt_register:
+                registerFace();
+                break;
+            case R.id.online_verify:
+                verifyFace();
+                break;
+
+        }
+        if (ErrorCode.SUCCESS != ret) {
+            mProDialog.dismiss();
+            showFaceTip("出现错误：" + ret);
+        }
+    }
+
+    /**
+     * 人脸发现
+     */
+    private void detectFace() {
+        Log.e(TAG, "detectFace 人脸发现");
+        mAuthid = ((EditText) findViewById(R.id.online_authid)).getText().toString();
+        Log.e(TAG, "detectFace AUTH_ID : " + mAuthid);
+        if (TextUtils.isEmpty(mAuthid)) {
+            asynShowTip("authid不能为空");
+            return;
+        }
+        if (isDetect) {
+            stopDetect();
+        } else {
+            startDetect();
+        }
+    }
+
+
+    /**
+     * 人脸验证
+     */
+    private void verifyFace() {
+        mAuthid = ((EditText) findViewById(R.id.online_authid)).getText().toString();
+        if (TextUtils.isEmpty(mAuthid)) {
+            showFaceTip("authid不能为空");
+            return;
+        }
+
+        if (null != mImageData) {
+            mProDialog.setMessage("验证中...");
+            mProDialog.show();
+            // 设置用户标识，格式为6-18个字符（由字母、数字、下划线组成，不得以数字开头，不能包含空格）。
+            // 当不设置时，云端将使用用户设备的设备ID来标识终端用户。
+            Log.e(TAG, "verifyFace AUTH_ID : " + mAuthid);
+            mFaceRequest.setParameter(SpeechConstant.AUTH_ID, mAuthid);
+            mFaceRequest.setParameter(SpeechConstant.WFR_SST, "verify");
+            mFaceRequest.sendRequest(mImageData, mRequestListener);
+        } else {
+            showFaceTip("请选择图片后再验证");
+        }
+    }
+
+
+    /**
+     * 人脸注册
+     */
+    private void registerFace() {
+        mAuthid = ((EditText) findViewById(R.id.online_authid)).getText().toString();
+        if (TextUtils.isEmpty(mAuthid)) {
+            showFaceTip("authid不能为空");
+            return;
+        }
+
+        if (null != mImageData) {
+            mProDialog.setMessage("注册中...");
+            if (!isFinishing()) {//Dialog　依赖于当前activity，当activity消失后，显示dialog会报错
+                mProDialog.show();
+            }
+            // 设置用户标识，格式为6-18个字符（由字母、数字、下划线组成，不得以数字开头，不能包含空格）。
+            // 当不设置时，云端将使用用户设备的设备ID来标识终端用户。
+            Log.e(TAG, "registerFace AUTH_ID : " + mAuthid);
+            mFaceRequest.setParameter(SpeechConstant.AUTH_ID, mAuthid);
+            mFaceRequest.setParameter(SpeechConstant.WFR_SST, "reg");
+            mFaceRequest.sendRequest(mImageData, mRequestListener);
+        } else {
+            showFaceTip("请选择图片后再注册");
+        }
+    }
+
+
+    /**
+     * 停止人脸识别
+     */
+    private void stopDetect() {
+        isDetect = false;
+//        if (isRecording) {
+//            stopRecord();
+//        }
+        btDetect.setText(getString(R.string.start_detect));
+    }
+
+    /**
+     * 开始人脸识别
+     */
+    private void startDetect() {
+//        if (isSpeeding) {
+//            showFaceTip("人脸识别和语音听写暂不支持同时打开");
+//            return;
+//        }
+        isDetect = true;
+        btDetect.setText(getString(R.string.stop_detect));
+    }
+
+    private RequestListener mRequestListener = new RequestListener() {
+
+        @Override
+        public void onEvent(int eventType, Bundle params) {
+        }
+
+        @Override
+        public void onBufferReceived(byte[] buffer) {
+            if (null != mProDialog) {
+                mProDialog.dismiss();
+            }
+
+            try {
+                String result = new String(buffer, "utf-8");
+                JSONObject object = new JSONObject(result);
+                String type = object.optString("sst");
+                if ("reg".equals(type)) {
+                    register(object);
+                } else if ("verify".equals(type)) {
+                    verify(object);
+                }
+            } catch (UnsupportedEncodingException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            } catch (JSONException e) {
+                // TODO: handle exception
+            }
+        }
+
+
+        private void register(JSONObject obj) throws JSONException {
+            int ret = obj.getInt("ret");
+            if (ret != 0) {
+                showFaceTip("注册失败");
+                Toast.makeText(MainActivity.this, "注册失败", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if ("success".equals(obj.get("rst"))) {
+                showFaceTip("注册成功");
+                if (isJpushStart) {
+                    detectFace();
+                    isJpushStart = false;
+                }
+                //
+            } else {
+                showFaceTip("注册失败");
+            }
+        }
+
+
+        /**
+         * 人脸验证结果
+         */
+        private void verify(JSONObject obj) throws JSONException {
+            int ret = obj.getInt("ret");
+            if (ret != 0) {
+                showFaceTip("验证失败");
+                return;
+            }
+            if ("success".equals(obj.get("rst"))) {
+                if (obj.getBoolean("verf")) {
+                    showFaceTip("通过验证，欢迎回来！");
+                    if (Constant.IS_VOICE) {
+                        Voice.getInstance(MainActivity.this).startSpeed("大家注意目标" + mAuthid + "号出现");
+                    }
+                    //目标出现，开始录像
+                    startRecord();
+                } else {
+                    showFaceTip("验证失败，不是同一个人");
+                }
+            } else {
+                showFaceTip("验证失败");
+            }
+        }
+
+        @Override
+        public void onCompleted(SpeechError error) {
+            if (null != mProDialog) {
+                mProDialog.dismiss();
+            }
+
+            if (error != null) {
+                switch (error.getErrorCode()) {
+                    case ErrorCode.MSP_ERROR_ALREADY_EXIST:
+                        showFaceTip("authid已经被注册，请更换后再试");
+                        break;
+
+                    default:
+                        showFaceTip(error.getPlainDescription(true));
+                        break;
+                }
+            }
+        }
+    };
+
+    private void showFaceTip(String str) {
+        Toast.makeText(MainActivity.this, str, Toast.LENGTH_SHORT).show();
+    }
+
+
+    /**
+     * 子线程中显示提示
+     */
+    private void asynShowTip(String str) {
+        Message msg = new Message();
+        msg.what = SHOW_TIP;
+        msg.obj = str;
+        mHandler.sendMessage(msg);
+    }
+
+    private class FaceTask extends AsyncTask<Void, Void, Void> {
+        private byte[] mData;
+
+        //构造函数
+        FaceTask(byte[] data) {
+            this.mData = data;
+        }
+
+        @Override
+        protected Void doInBackground(Void... voids) {
+            Camera.Size size = mCamera.getParameters().getPreviewSize(); //获取预览大小
+            final int w = size.width;  //宽度
+            final int h = size.height;
+            final YuvImage image = new YuvImage(mData, ImageFormat.NV21, w, h, null);
+            ByteArrayOutputStream os = new ByteArrayOutputStream(mData.length);
+            if (!image.compressToJpeg(new Rect(0, 0, w, h), 100, os)) {
+                return null;
+            }
+            byte[] tmp = os.toByteArray();
+            Bitmap bmp = BitmapFactory.decodeByteArray(tmp, 0, tmp.length);
+            //自己定义的实时分析预览帧视频的算法
+            saveAndVerifyPic(bmp);
+            return null;
+        }
+
+        private void saveAndVerifyPic(Bitmap bmp) {
+            String fileSrc = null;
+            if (null != bmp) {
+                FaceUtil.saveBitmapToFile(MainActivity.this, bmp);
+            }
+
+            // 获取图片保存路径
+            fileSrc = FaceUtil.getImagePath(MainActivity.this);
+            imagetoByte(fileSrc);
+            onlineVerify();
+        }
+    }
+
+    /**
+     * image 转化成Byte[]
+     */
+    public void imagetoByte(String url) {
+        // 获取图片的宽和高
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        mImage = BitmapFactory.decodeFile(url, options);
+
+        // 压缩图片
+        options.inSampleSize = Math.max(1, (int) Math.ceil(Math.max(
+                (double) options.outWidth / 1024f,
+                (double) options.outHeight / 1024f)));
+        options.inJustDecodeBounds = false;
+        mImage = BitmapFactory.decodeFile(url, options);
+
+
+        // 若mImageBitmap为空则图片信息不能正常获取
+        if (null == mImage) {
+            showFaceTip("图片信息无法正常获取！");
+            return;
+        }
+
+        // 部分手机会对图片做旋转，这里检测旋转角度
+        int degree = FaceUtil.readPictureDegree(url);
+        if (degree != 0) {
+            // 把图片旋转为正的方向
+            mImage = FaceUtil.rotateImage(degree, mImage);
+        }
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+        //可根据流量及网络状况对图片进行压缩
+        mImage.compress(Bitmap.CompressFormat.JPEG, 80, baos);
+        mImageData = baos.toByteArray();
+    }
+
+
+    private void takePhoto() {
+        if (mCamera == null)
+            return;
+
+        mCamera.takePicture(null, null, new Camera.PictureCallback() {
+            @Override
+            public void onPictureTaken(byte[] bytes, Camera camera) {
+
+                Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                Matrix matrix = new Matrix();
+                //设置缩放
+                matrix.postScale(1.0f, 1.0f);
+                bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+
+                SimpleDateFormat format = new SimpleDateFormat("yyyyMMddHHmmss");
+                String times = format.format((new Date()));
+                String path = AppUtils.getAppPath() + times + ".jpg";
+
+                File file = new File(path);
+                if (!file.getParentFile().exists()) {
+                    file.getParentFile().mkdirs();
+                }
+                try {
+                    FileOutputStream outStream = new FileOutputStream(file);
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outStream);
+                    outStream.close();
+                    FaceUtil.readPictureDegree(path);
+                    updateGallery(file.getAbsolutePath());
+                    mHandler.sendEmptyMessage(REPREVIEW);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+            }
+        });
+
+    }
+
+
+    /**
+     * 在线人脸验证
+     */
+    private void onlineVerify() {
+        if (null != mImageData) {
+            //mProDialog.setMessage("验证中...");
+            Log.e(TAG, "验证中...");
+            //mProDialog.show();
+            // 设置用户标识，格式为6-18个字符（由字母、数字、下划线组成，不得以数字开头，不能包含空格）。
+            // 当不设置时，云端将使用用户设备的设备ID来标识终端用户。
+            mFaceRequest.setParameter(SpeechConstant.AUTH_ID, mAuthid);
+            mFaceRequest.setParameter(SpeechConstant.WFR_SST, "verify");
+            mFaceRequest.sendRequest(mImageData, mRequestListener);
+        } else {
+            asynShowTip("请选择图片后再验证");
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (resultCode != RESULT_OK) {
+            return;
+        }
+
+        String fileSrc = null;
+        if (requestCode == REQUEST_PICTURE_CHOOSE) {
+            if ("file".equals(data.getData().getScheme())) {
+                // 有些低版本机型返回的Uri模式为file
+                fileSrc = data.getData().getPath();
+            } else {
+                // Uri模型为content
+                String[] proj = {MediaStore.Images.Media.DATA};
+                Cursor cursor = getContentResolver().query(data.getData(), proj,
+                        null, null, null);
+                cursor.moveToFirst();
+                int idx = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+                fileSrc = cursor.getString(idx);
+                cursor.close();
+            }
+            // 跳转到图片裁剪页面
+            FaceUtil.cropPicture(this, Uri.fromFile(new File(fileSrc)));
+        } else if (requestCode == REQUEST_CAMERA_IMAGE) {
+            if (null == mPictureFile) {
+                showFaceTip("拍照失败，请重试");
+                return;
+            }
+
+            fileSrc = mPictureFile.getAbsolutePath();
+            updateGallery(fileSrc);
+            // 跳转到图片裁剪页面
+            FaceUtil.cropPicture(this, Uri.fromFile(new File(fileSrc)));
+        } else if (requestCode == FaceUtil.REQUEST_CROP_IMAGE) {
+            // 获取返回数据
+            Bitmap bmp = data.getParcelableExtra("data");
+            // 若返回数据不为null，保存至本地，防止裁剪时未能正常保存
+            if (null != bmp) {
+                FaceUtil.saveBitmapToFile(this, bmp);
+            }
+            // 获取图片保存路径
+            fileSrc = FaceUtil.getImagePath(this);
+
+            imagetoByte(fileSrc);
+        }
+
+    }
+
+    /**
+     * 更新图库可以查看到的所以图片
+     */
+    private void updateGallery(String filename) {
+        MediaScannerConnection.scanFile(this, new String[]{filename}, null,
+                new MediaScannerConnection.OnScanCompletedListener() {
+
+                    @Override
+                    public void onScanCompleted(String path, Uri uri) {
+
+                    }
+                });
+    }
+
+    @Override
+    public void finish() {
+        if (null != mProDialog) {
+            mProDialog.dismiss();
+        }
+        super.finish();
+    }
+    //face end
+
 }

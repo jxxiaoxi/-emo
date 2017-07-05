@@ -34,7 +34,7 @@
 	<CheckBoxPreference
 		android:key="@string/pref_key_iat_show"
 		android:title="@string/pref_title_iat_show"
-		android:defaultValue="true" />
+		android:defaultValue="false" />
 
 	<CheckBoxPreference
 		android:key="@string/pref_key_auto_iat_show"

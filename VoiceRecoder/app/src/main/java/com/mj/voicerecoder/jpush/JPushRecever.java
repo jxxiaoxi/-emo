@@ -4,13 +4,10 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.v4.content.LocalBroadcastManager;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.alibaba.fastjson.JSON;
 import com.mj.voicerecoder.MainActivity;
-import com.mj.voicerecoder.bean.JpushBean;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -24,7 +21,8 @@ import cn.jpush.android.api.JPushInterface;
  */
 
 public class JPushRecever extends BroadcastReceiver {
-    private static final  String TAG = "JPushRecever";
+   // private static final  String TAG = "JPushRecever";
+    private static final  String TAG = "mijie";
     @Override
     public void onReceive(Context context, Intent intent) {
         try {
@@ -122,7 +120,7 @@ public class JPushRecever extends BroadcastReceiver {
 //                }
 //
 //            }
-            LocalBroadcastManager.getInstance(context).sendBroadcast(msgIntent);
+            context.sendBroadcast(msgIntent);
         }
     }
 }

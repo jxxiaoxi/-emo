@@ -1,8 +1,6 @@
 package com.mj.voicerecoder;
 
-import android.app.Activity;
 import android.app.ProgressDialog;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
@@ -19,16 +17,11 @@ import android.media.MediaScannerConnection;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.Message;
 import android.provider.MediaStore;
-import android.provider.Settings;
-import android.support.v4.app.FragmentActivity;
 import android.text.TextUtils;
 import android.util.Log;
-import android.util.Size;
-import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
@@ -52,7 +45,6 @@ import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -588,22 +580,6 @@ public class FaceDetectActivity extends BaseActivity {
         }
     }
 
-//    public static void saveBitmapToFile(Context context, Bitmap bmp) {
-//        String file_path = AppUtils.getAppPath() + "hahah.jpg";
-//        File file = new File(file_path);
-//        FileOutputStream fOut;
-//        try {
-//            fOut = new FileOutputStream(file);
-//            bmp.compress(Bitmap.CompressFormat.JPEG, 85, fOut);
-//            fOut.flush();
-//            fOut.close();
-//        } catch (FileNotFoundException e) {
-//            e.printStackTrace();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//    }
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode != RESULT_OK) {
@@ -707,7 +683,5 @@ public class FaceDetectActivity extends BaseActivity {
         toast.setText(str);
         toast.show();
     }
-
-
 
 }

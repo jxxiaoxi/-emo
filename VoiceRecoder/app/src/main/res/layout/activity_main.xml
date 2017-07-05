@@ -1,81 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    tools:context=".MainActivity">
-    android:paddingBottom="10dp"
-    android:paddingLeft="5dp"
-    android:paddingRight="5dp"
-    <include layout="@layout/title_bar" />
-<FrameLayout
-    android:layout_width="fill_parent"
-    android:layout_weight="1"
-    android:layout_height="0dp">
-    <TextureView
-        android:id="@+id/surface_view"
-        android:layout_width="fill_parent"
-        android:layout_height="match_parent" />
-    <ImageView
-        android:layout_width="wrap_content"
-        android:layout_marginLeft="10dp"
-        android:layout_marginTop="10dp"
-        android:id="@+id/iv_recoder"
-        android:visibility="invisible"
-        android:background="@drawable/circle"
-        android:layout_height="wrap_content"
-        />
-</FrameLayout>
+    android:orientation="horizontal">
+
+    <FrameLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1">
+
+        <TextureView
+            android:id="@+id/surface_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <ImageView
+            android:id="@+id/iv_recoder"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="10dp"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/circle"
+            android:visibility="invisible" />
+    </FrameLayout>
+
     <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
         android:orientation="vertical">
 
-        <EditText
-            android:id="@+id/et_voice_result"
-            android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:background="@drawable/ed_vioce_content"
-            android:textSize="20sp" />
-
-        <Button
-            android:id="@+id/bt_speech"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/start_speed" />
+            android:layout_marginBottom="5dp"
+            android:layout_marginTop="5dp"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
 
-        <Button
-            android:id="@+id/bt_face_detect"
+            <EditText
+                android:id="@+id/online_authid"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:digits="abcdefghijklmnopqrstuvwxyz0123456789_"
+                android:hint="authid"
+                android:maxLength="18"
+                android:textSize="16sp">
+
+                <requestFocus />
+            </EditText>
+
+            <TextView
+                android:id="@+id/et_voice_result"
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:background="@drawable/ed_vioce_content"
+                android:textSize="16sp" />
+        </LinearLayout>
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/start_detect" />
-
-        <RadioGroup
-            android:id="@+id/radioGroup"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:contentDescription="听写类型"
+            android:layout_marginBottom="5dp"
+            android:gravity="center_horizontal"
             android:orientation="horizontal">
 
-            <RadioButton
-                android:id="@+id/iatRadioCloud"
-                android:layout_width="wrap_content"
+            <Button
+                android:id="@+id/online_pick"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textSize="22dp"
-                android:checked="true"
-                android:text="云端语音识别"></RadioButton>
+                android:text="选图"
+                android:textSize="20sp" />
 
-            <RadioButton
-                android:id="@+id/iatRadioLocal"
-                android:layout_width="wrap_content"
+            <Button
+                android:id="@+id/online_camera"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:textSize="22dp"
                 android:layout_weight="1"
-                android:text="本地语音识别"></RadioButton>
-        </RadioGroup>
+                android:text="拍照"
+                android:textSize="20sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/bt_register"
+                android:layout_width="0dp"
+                android:layout_height="50dp"
+                android:layout_weight="1"
+                android:text="@string/bt_register"
+                android:textSize="20sp" />
+
+            <FrameLayout
+                android:layout_width="0dp"
+                android:layout_height="50dp"
+                android:layout_weight="1">
+
+                <Button
+                    android:id="@+id/online_verify"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:text="@string/bt_detect"
+                    android:textSize="20sp"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/bt_detect"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:text="@string/start_detect"
+                    android:textSize="20sp" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="vertical">
+
+            <Button
+                android:id="@+id/bt_speech"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/start_speed"
+                android:textSize="20sp" />
+
+            <RadioGroup
+                android:id="@+id/radioGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:contentDescription="听写类型"
+                android:orientation="horizontal">
+
+                <RadioButton
+                    android:id="@+id/iatRadioCloud"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:checked="true"
+                    android:text="云端语音识别"
+                    android:textSize="20dp"></RadioButton>
+
+                <RadioButton
+                    android:id="@+id/iatRadioLocal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="本地语音识别"
+                    android:textSize="20dp"></RadioButton>
+            </RadioGroup>
+
+            <Button
+                android:id="@+id/iv_settings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="设置"
+                android:textSize="20sp" />
+        </LinearLayout>
 
     </LinearLayout>
-
 </LinearLayout>

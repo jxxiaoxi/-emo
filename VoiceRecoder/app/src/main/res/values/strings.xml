@@ -18,6 +18,8 @@
     <string name="bt_register">注册人脸</string>
     <string name="bt_detect">检测人脸</string>
     <string name="start_detect">开始人脸识别</string>
+    <string name="stop_detect">停止人脸识别</string>
+    stop_detect
 
 
     <!-- 语言 -->
